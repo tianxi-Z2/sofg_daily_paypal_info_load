@@ -24,16 +24,16 @@ def run_command(command: str) -> Tuple[bool, str]:
 def check_file_exists(path: str, description: str) -> bool:
     """Check if a file exists"""
     if os.path.exists(path):
-        print(f"✅ {description}: {path}")
+        print(f"{description}: {path}")
         return True
     else:
-        print(f"❌ {description}: {path} NOT FOUND")
+        print(f"{description}: {path} NOT FOUND")
         return False
 
 
 def check_directory_structure() -> bool:
     """Check if all required directories and files exist"""
-    print("🔍 Checking Directory Structure...")
+    print("Checking Directory Structure...")
 
     required_files = [
         ("scripts/fetch_transactions.py", "PayPal API fetcher"),
@@ -56,18 +56,18 @@ def check_directory_structure() -> bool:
 
 def check_gcp_auth() -> bool:
     """Check GCP authentication setup"""
-    print("\n🔍 Checking GCP Authentication...")
+    print("\nChecking GCP Authentication...")
 
     # Check if sa-key.json exists and is a file
     if not os.path.exists("sa-key.json"):
-        print("❌ sa-key.json not found")
+        print("sa-key.json not found")
         return False
 
     if os.path.isdir("sa-key.json"):
-        print("❌ sa-key.json is a directory (should be a file)")
+        print("sa-key.json is a directory (should be a file)")
         return False
 
-    print("✅ sa-key.json exists and is a file")
+    print("sa-key.json exists and is a file")
 
     # Check if it's valid JSON
     try:
@@ -75,62 +75,62 @@ def check_gcp_auth() -> bool:
             key_data = json.load(f)
 
         if key_data.get("type") == "service_account":
-            print("✅ sa-key.json contains service account credentials")
+            print("sa-key.json contains service account credentials")
             project_id = key_data.get("project_id", "unknown")
-            print(f"📝 Project ID: {project_id}")
+            print(f"Project ID: {project_id}")
             return True
         else:
-            print("⚠️  sa-key.json might be a placeholder file")
+            print("sa-key.json might be a placeholder file")
             return False
     except json.JSONDecodeError:
-        print("❌ sa-key.json contains invalid JSON")
+        print("sa-key.json contains invalid JSON")
         return False
 
 
 def check_docker_status() -> bool:
     """Check if Docker services are running"""
-    print("\n🔍 Checking Docker Status...")
+    print("\nChecking Docker Status...")
 
     # Check if docker-compose is available
     success, output = run_command("docker-compose --version")
     if not success:
-        print("❌ Docker Compose not available")
+        print("Docker Compose not available")
         return False
-    print(f"✅ Docker Compose: {output}")
+    print(f"Docker Compose: {output}")
 
     # Check running containers
     success, output = run_command("docker-compose ps")
     if success:
         if "airflow-webserver" in output and "airflow-scheduler" in output:
-            print("✅ Airflow services are running")
+            print("Airflow services are running")
             return True
         else:
-            print("⚠️  Airflow services might not be running")
-            print("💡 Try: docker-compose up -d")
+            print("Airflow services might not be running")
+            print("Try: docker-compose up -d")
             return False
     else:
-        print("❌ Could not check Docker status")
+        print("Could not check Docker status")
         return False
 
 
 def check_airflow_connection() -> bool:
     """Check if Airflow is accessible"""
-    print("\n🔍 Checking Airflow Connection...")
+    print("\nChecking Airflow Connection...")
 
     # Try to access Airflow CLI
     success, output = run_command("docker-compose exec -T airflow-webserver airflow version")
     if success:
-        print(f"✅ Airflow CLI accessible: {output}")
+        print(f"Airflow CLI accessible: {output}")
         return True
     else:
-        print("❌ Could not access Airflow CLI")
-        print("💡 Make sure Airflow containers are running")
+        print("Could not access Airflow CLI")
+        print("Make sure Airflow containers are running")
         return False
 
 
 def check_airflow_variables() -> bool:
     """Check if required Airflow variables are set"""
-    print("\n🔍 Checking Airflow Variables...")
+    print("\nChecking Airflow Variables...")
 
     required_variables = [
         "GCP_PROJECT_ID",
@@ -145,11 +145,11 @@ def check_airflow_variables() -> bool:
         if success and output and not output.startswith("Variable"):
             # Hide sensitive values
             if "SECRET" in var or "PASSWORD" in var:
-                print(f"✅ {var}: [HIDDEN]")
+                print(f"{var}: [HIDDEN]")
             else:
-                print(f"✅ {var}: {output[:50]}...")
+                print(f"{var}: {output[:50]}...")
         else:
-            print(f"❌ {var}: Not set")
+            print(f"{var}: Not set")
             all_set = False
 
     return all_set
@@ -157,34 +157,34 @@ def check_airflow_variables() -> bool:
 
 def check_dag_status() -> bool:
     """Check if the PayPal DAG is loaded correctly"""
-    print("\n🔍 Checking DAG Status...")
+    print("\nChecking DAG Status...")
 
     # Check if DAG is listed
     success, output = run_command("docker-compose exec -T airflow-webserver airflow dags list")
     if success and "paypal_data_pipeline" in output:
-        print("✅ PayPal DAG found in DAG list")
+        print("PayPal DAG found in DAG list")
     else:
-        print("❌ PayPal DAG not found")
+        print("PayPal DAG not found")
         return False
 
     # Check for import errors
     success, output = run_command("docker-compose exec -T airflow-webserver airflow dags list-import-errors")
     if success:
         if output.strip():
-            print("❌ DAG import errors detected:")
+            print("DAG import errors detected:")
             print(output)
             return False
         else:
-            print("✅ No DAG import errors")
+            print("No DAG import errors")
             return True
     else:
-        print("⚠️  Could not check for import errors")
+        print("Could not check for import errors")
         return False
 
 
 def test_script_imports() -> bool:
     """Test if all scripts can be imported correctly"""
-    print("\n🔍 Testing Script Imports...")
+    print("\nTesting Script Imports...")
 
     # Test Python path setup
     sys.path.insert(0, 'scripts')
@@ -200,19 +200,19 @@ def test_script_imports() -> bool:
     for script_name, description in scripts_to_test:
         try:
             __import__(script_name)
-            print(f"✅ {description}: Import successful")
+            print(f"{description}: Import successful")
         except ImportError as e:
-            print(f"❌ {description}: Import failed - {str(e)}")
+            print(f"{description}: Import failed - {str(e)}")
             all_imported = False
         except Exception as e:
-            print(f"⚠️  {description}: Import warning - {str(e)}")
+            print(f"{description}: Import warning - {str(e)}")
 
     return all_imported
 
 
 def test_configuration_files() -> bool:
     """Test if configuration files are valid"""
-    print("\n🔍 Testing Configuration Files...")
+    print("\nTesting Configuration Files...")
 
     all_valid = True
 
@@ -220,9 +220,9 @@ def test_configuration_files() -> bool:
     try:
         with open('config/schema.json', 'r') as f:
             schema = json.load(f)
-        print(f"✅ BigQuery schema: {len(schema)} fields defined")
+        print(f"BigQuery schema: {len(schema)} fields defined")
     except Exception as e:
-        print(f"❌ BigQuery schema: {str(e)}")
+        print(f"BigQuery schema: {str(e)}")
         all_valid = False
 
     # Test pipeline_config.yaml
@@ -230,11 +230,11 @@ def test_configuration_files() -> bool:
         import yaml
         with open('config/pipeline_config.yaml', 'r') as f:
             config = yaml.safe_load(f)
-        print(f"✅ Pipeline config: {len(config)} sections defined")
+        print(f"Pipeline config: {len(config)} sections defined")
     except ImportError:
-        print("⚠️  PyYAML not available, skipping YAML validation")
+        print("PyYAML not available, skipping YAML validation")
     except Exception as e:
-        print(f"❌ Pipeline config: {str(e)}")
+        print(f"Pipeline config: {str(e)}")
         all_valid = False
 
     return all_valid
@@ -242,7 +242,7 @@ def test_configuration_files() -> bool:
 
 def run_sample_test() -> bool:
     """Run a simple test of the transformation logic"""
-    print("\n🔍 Running Sample Data Test...")
+    print("\nRunning Sample Data Test...")
 
     try:
         # Import transformer
@@ -280,51 +280,51 @@ def run_sample_test() -> bool:
         parsed = parser.parse_transactions(sample_data)
 
         if parsed and len(parsed) == 1:
-            print("✅ Sample transformation successful")
-            print(f"📝 Parsed transaction ID: {parsed[0].get('transaction_id')}")
+            print("Sample transformation successful")
+            print(f"Parsed transaction ID: {parsed[0].get('transaction_id')}")
             return True
         else:
-            print("❌ Sample transformation failed")
+            print("Sample transformation failed")
             return False
 
     except Exception as e:
-        print(f"❌ Sample test failed: {str(e)}")
+        print(f"Sample test failed: {str(e)}")
         return False
 
 
 def generate_recommendations(results: Dict[str, bool]) -> None:
     """Generate recommendations based on test results"""
-    print("\n💡 Recommendations:")
+    print("\nRecommendations:")
     print("=" * 50)
 
     if not results.get('directory_structure'):
-        print("🔧 Fix missing files:")
+        print("     Fix missing files:")
         print("   - Ensure all scripts are in the scripts/ directory")
         print("   - Check that config files exist in config/ directory")
 
     if not results.get('gcp_auth'):
-        print("🔧 Fix GCP authentication:")
+        print("     Fix GCP authentication:")
         print("   - Run: ./fix_gcp_auth.sh")
         print("   - Or manually copy your service account key to sa-key.json")
 
     if not results.get('docker_status'):
-        print("🔧 Start Docker services:")
+        print("     Start Docker services:")
         print("   - Run: docker-compose up -d")
         print("   - Wait a few minutes for services to initialize")
 
     if not results.get('airflow_variables'):
-        print("🔧 Set Airflow variables:")
+        print("     Set Airflow variables:")
         print("   - Run the variable setup commands from the guide")
         print("   - Use your real PayPal and GCP credentials")
 
     if not results.get('dag_status'):
-        print("🔧 Fix DAG issues:")
+        print("     Fix DAG issues:")
         print("   - Replace dags/paypal_dag.py with the fixed version")
         print("   - Restart Airflow: docker-compose restart airflow-webserver airflow-scheduler")
 
     if all(results.values()):
-        print("🎉 All tests passed! Your pipeline is ready to run!")
-        print("🚀 Next steps:")
+        print("   All tests passed! Your pipeline is ready to run!")
+        print("   Next steps:")
         print("   1. Visit http://localhost:8080")
         print("   2. Enable the 'paypal_data_pipeline' DAG")
         print("   3. Trigger a test run")
@@ -333,7 +333,7 @@ def generate_recommendations(results: Dict[str, bool]) -> None:
 
 def main():
     """Main test function"""
-    print("🧪 PayPal Pipeline Integration Test")
+    print("  PayPal Pipeline Integration Test")
     print("=" * 50)
 
     # Run all tests
@@ -350,13 +350,13 @@ def main():
     }
 
     # Print summary
-    print("\n📊 Test Results Summary:")
+    print("\n  Test Results Summary:")
     print("=" * 50)
     passed = sum(test_results.values())
     total = len(test_results)
 
     for test_name, result in test_results.items():
-        status = "✅ PASS" if result else "❌ FAIL"
+        status = "  PASS" if result else "  FAIL"
         print(f"{test_name:20s}: {status}")
 
     print(f"\nOverall: {passed}/{total} tests passed ({passed / total * 100:.1f}%)")
