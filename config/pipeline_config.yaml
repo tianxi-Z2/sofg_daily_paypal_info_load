@@ -1,0 +1,191 @@
+# config/pipeline_config.yaml
+# PayPal Data Pipeline Configuration
+
+pipeline:
+  name: "paypal_data_pipeline"
+  version: "1.0.0"
+  description: "Enterprise ETL pipeline for PayPal transaction data"
+
+# PayPal API Configuration
+paypal:
+  api:
+    sandbox_url: "https://api-m.sandbox.paypal.com"
+    production_url: "https://api-m.paypal.com"
+    timeout: 120
+    max_retries: 3
+    retry_delay: 5
+    page_size: 500
+    max_pages: 100
+
+  # Transaction filters
+  filters:
+    default_status: null  # null means all statuses
+    date_range:
+      default_days_back: 1
+      max_days_per_request: 31
+
+# Google Cloud Configuration
+gcp:
+  project_id: "${GCP_PROJECT_ID}"
+  location: "US"
+
+  # Storage Configuration
+  storage:
+    bucket: "${GCS_BUCKET}"
+    paths:
+      raw: "paypal/raw/"
+      parsed: "paypal/parsed/"
+      validation: "paypal/validation/"
+      logs: "paypal/logs/"
+      backup: "paypal/backup/"
+    retention_days: 90
+
+  # BigQuery Configuration
+  bigquery:
+    dataset: "${BQ_DATASET:paypal_data}"
+    tables:
+      transactions: "transactions"
+      daily_summary: "daily_summary"
+      payer_summary: "payer_summary"
+      recent_transactions: "recent_transactions"
+
+    # Table configuration
+    partitioning:
+      field: "transaction_date"
+      type: "DAY"
+
+    clustering:
+      fields:
+        - "transaction_status"
+        - "currency_code"
+        - "payment_method"
+
+    # Load configuration
+    load_config:
+      write_disposition: "WRITE_APPEND"
+      max_bad_records: 10
+      ignore_unknown_values: true
+
+# Data Quality Configuration
+data_quality:
+  validation:
+    enabled: true
+    fail_on_error: false
+
+  checks:
+    - name: "row_count_check"
+      description: "Ensure rows were loaded"
+      min_threshold: 1
+
+    - name: "duplicate_check"
+      description: "Check for duplicate transaction IDs"
+      max_threshold: 0
+
+    - name: "null_check"
+      description: "Check for null transaction IDs"
+      max_threshold: 0
+
+    - name: "completeness_check"
+      description: "Data completeness score"
+      min_threshold: 95.0
+
+# Monitoring and Alerting
+monitoring:
+  enabled: true
+
+  metrics:
+    - name: "daily_transaction_count"
+      description: "Number of transactions processed per day"
+      alert_threshold: 10
+
+    - name: "daily_transaction_amount"
+      description: "Total transaction amount per day"
+
+    - name: "api_response_time"
+      description: "PayPal API response time"
+      alert_threshold: 60
+
+    - name: "pipeline_execution_time"
+      description: "Total pipeline execution time"
+      alert_threshold: 1800
+
+    - name: "error_rate"
+      description: "Pipeline error rate"
+      alert_threshold: 0.05
+
+  alerts:
+    - name: "low_transaction_volume"
+      condition: "daily_transaction_count < 10"
+      severity: "WARNING"
+
+    - name: "pipeline_failure"
+      condition: "pipeline_status = 'FAILED'"
+      severity: "CRITICAL"
+
+    - name: "high_error_rate"
+      condition: "error_rate > 0.05"
+      severity: "WARNING"
+
+# Logging Configuration
+logging:
+  level: "${LOG_LEVEL:INFO}"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+  handlers:
+    console:
+      enabled: true
+      level: "INFO"
+
+    file:
+      enabled: false
+      level: "DEBUG"
+      filename: "/var/log/paypal_pipeline.log"
+
+    gcp:
+      enabled: true
+      level: "INFO"
+      log_name: "paypal-pipeline"
+
+# Scheduling Configuration
+scheduling:
+  timezone: "UTC"
+  schedule: "0 2 * * *"  # Daily at 2 AM UTC
+  catchup: false
+  max_active_runs: 1
+  retries: 2
+  retry_delay_minutes: 5
+
+# Environment Configuration
+environments:
+  dev:
+    paypal_sandbox: true
+    log_level: "DEBUG"
+
+  staging:
+    paypal_sandbox: true
+    log_level: "INFO"
+
+  prod:
+    paypal_sandbox: false
+    log_level: "INFO"
+
+# Security Configuration
+security:
+  mask_sensitive_fields: true
+  sensitive_fields:
+    - "payer_email"
+    - "payer_name"
+    - "payer_id"
+    - "custom_field"
+
+  encryption:
+    enabled: false
+    key_name: ""
+
+# Performance Configuration
+performance:
+  batch_size: 500
+  parallel_workers: 2
+  request_timeout: 120
+  memory_limit: "2Gi"
+  cpu_limit: "1000m"

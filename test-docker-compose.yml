@@ -1,0 +1,47 @@
+ test-docker-compose.yml
+#test whether official base image works in docker-compose
+
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - test_postgres_volume:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7.2-alpine
+
+  # test-airflow-init without any def
+  test-airflow-init:
+    image: apache/airflow:2.8.1-python3.11
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__FERNET_KEY: ''
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      _AIRFLOW_DB_UPGRADE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: airflow
+      _AIRFLOW_WWW_USER_PASSWORD: airflow
+      # X include PIP_ADDITIONAL_REQUIREMENTS
+    user: "50000:0"
+    command: |
+      bash -c "
+        echo 'Testing Airflow version...'
+        airflow version
+        echo 'Initializing database...'
+        airflow db init
+        echo 'Creating admin user...'
+        airflow users create --username airflow --firstname admin --lastname admin --email admin@admin.com --password airflow --role Admin
+        echo 'Initialization completed successfully!'
+      "
+
+volumes:
+  test_postgres_volume:

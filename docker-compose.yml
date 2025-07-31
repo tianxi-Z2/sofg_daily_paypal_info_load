@@ -1,0 +1,282 @@
+# docker-compose.yml
+# PayPal Pipeline Enterprise Docker Compose Configuration
+
+
+x-airflow-common:
+  &airflow-common
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+  environment:
+    &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+    # Environment variables from .env file
+    GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+    GCS_BUCKET: ${GCS_BUCKET}
+    BQ_DATASET: ${BQ_DATASET:-paypal_data}
+    BQ_TABLE: ${BQ_TABLE:-transactions}
+    PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID}
+    PAYPAL_CLIENT_SECRET: ${PAYPAL_CLIENT_SECRET}
+    PAYPAL_SANDBOX: ${PAYPAL_SANDBOX:-true}
+    ENVIRONMENT: ${ENVIRONMENT:-dev}
+    LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    GOOGLE_APPLICATION_CREDENTIALS: /app/sa-key.json
+  volumes:
+    - ${PWD}/dags:/opt/airflow/dags
+    - ${PWD}/scripts:/app/scripts
+    - ${PWD}/config:/app/config
+    - ${PWD}/logs:/opt/airflow/logs
+    - ${PWD}/plugins:/opt/airflow/plugins
+    - ${PWD}/sa-key.json:/app/sa-key.json:ro
+  user: "${AIRFLOW_UID:-50000}:0"
+  depends_on:
+    &airflow-common-depends-on
+    redis:
+      condition: service_healthy
+    postgres:
+      condition: service_healthy
+
+services:
+  # PostgreSQL Database for Airflow
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres_db_volume:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+    networks:
+      - paypal_pipeline_network
+
+  # Redis for Airflow (used by CeleryExecutor if needed)
+  redis:
+    image: redis:7.2-alpine
+    expose:
+      - 6379
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 30s
+      retries: 50
+      start_period: 30s
+    restart: always
+    networks:
+      - paypal_pipeline_network
+
+  # Airflow Webserver
+  airflow-webserver:
+    <<: *airflow-common
+    command: airflow webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+    networks:
+      - paypal_pipeline_network
+
+  # Airflow Scheduler
+  airflow-scheduler:
+    <<: *airflow-common
+    command: airflow scheduler
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+    networks:
+      - paypal_pipeline_network
+
+  # Airflow Worker (if using CeleryExecutor)
+#  airflow-worker:
+#    <<: *airflow-common
+#    command: airflow celery worker
+#    healthcheck:
+#      test:
+#        - "CMD-SHELL"
+#        - 'celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"'
+#      interval: 30s
+#      timeout: 10s
+#      retries: 5
+#      start_period: 30s
+#    environment:
+#      <<: *airflow-common-env
+#      DUMB_INIT_SETSID: "0"
+#    restart: always
+#    depends_on:
+#      <<: *airflow-common-depends-on
+#      airflow-init:
+#        condition: service_completed_successfully
+#    networks:
+#      - paypal_pipeline_network
+
+  # Airflow Triggerer
+  airflow-triggerer:
+    <<: *airflow-common
+    command: airflow triggerer
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+    networks:
+      - paypal_pipeline_network
+
+  # Airflow Initialization
+  airflow-init:
+    <<: *airflow-common
+    # entrypoint: /bin/bash
+    command: |
+      bash -c "
+        echo 'Airflow version:'
+        airflow version
+        echo 'Initializing database...'
+        airflow db init
+        echo 'Creating admin user...'
+        airflow users create --username airflow --firstname admin --lastname admin --email admin@admin.com --password airflow --role Admin || true
+        echo 'Done!'
+      "
+    environment:
+      <<: *airflow-common-env
+      _AIRFLOW_DB_UPGRADE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
+      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+      # _PIP_ADDITIONAL_REQUIREMENTS: ''
+    user: "0:0"
+    volumes:
+      - ${PWD}:/sources
+    networks:
+      - paypal_pipeline_network
+
+  # Airflow CLI
+  airflow-cli:
+    <<: *airflow-common
+    profiles:
+      - debug
+    environment:
+      <<: *airflow-common-env
+      CONNECTION_CHECK_MAX_COUNT: "0"
+    command:
+      - bash
+      - -c
+      - airflow
+    networks:
+      - paypal_pipeline_network
+
+  # Flower (Celery monitoring)
+  flower:
+    <<: *airflow-common
+    command: airflow celery flower
+    profiles:
+      - flower
+    ports:
+      - "5555:5555"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:5555/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+    networks:
+      - paypal_pipeline_network
+
+  # Pipeline Runner (for standalone execution)
+  pipeline-runner:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    environment:
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+      - GCS_BUCKET=${GCS_BUCKET}
+      - BQ_DATASET=${BQ_DATASET:-paypal_data}
+      - BQ_TABLE=${BQ_TABLE:-transactions}
+      - PAYPAL_CLIENT_ID=${PAYPAL_CLIENT_ID}
+      - PAYPAL_CLIENT_SECRET=${PAYPAL_CLIENT_SECRET}
+      - PAYPAL_SANDBOX=${PAYPAL_SANDBOX:-true}
+      - ENVIRONMENT=${ENVIRONMENT:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/sa-key.json
+    volumes:
+      - ${PWD}/scripts:/app/scripts
+      - ${PWD}/config:/app/config
+      - ${PWD}/sa-key.json:/app/sa-key.json:ro
+    profiles:
+      - standalone
+    command: ["python", "-c", "print('Pipeline runner ready. Use docker-compose exec pipeline-runner bash to run scripts.')"]
+    networks:
+      - paypal_pipeline_network
+
+  # Monitoring (optional - can be enabled with profile)
+  prometheus:
+    image: prom/prometheus:latest
+    profiles:
+      - monitoring
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - paypal_pipeline_network
+
+  grafana:
+    image: grafana/grafana:latest
+    profiles:
+      - monitoring
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - paypal_pipeline_network
+
+volumes:
+  postgres_db_volume:
+  grafana_data:
+
+networks:
+  paypal_pipeline_network:
+    driver: bridge

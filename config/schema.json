@@ -1,0 +1,202 @@
+[
+  {
+    "name": "transaction_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Unique PayPal transaction identifier"
+  },
+  {
+    "name": "paypal_account_id",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "PayPal account identifier"
+  },
+  {
+    "name": "transaction_status",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Transaction status (P=Pending, S=Success, D=Denied, V=Reversed, F=Failed)"
+  },
+  {
+    "name": "transaction_subject",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Transaction subject line"
+  },
+  {
+    "name": "transaction_note",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Transaction note or message"
+  },
+  {
+    "name": "invoice_id",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Associated invoice ID"
+  },
+  {
+    "name": "amount",
+    "type": "FLOAT64",
+    "mode": "NULLABLE",
+    "description": "Transaction amount"
+  },
+  {
+    "name": "currency_code",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Currency code (e.g., USD, EUR)"
+  },
+  {
+    "name": "fee_amount",
+    "type": "FLOAT64",
+    "mode": "NULLABLE",
+    "description": "PayPal fee amount"
+  },
+  {
+    "name": "net_amount",
+    "type": "FLOAT64",
+    "mode": "NULLABLE",
+    "description": "Net amount after fees"
+  },
+  {
+    "name": "transaction_date",
+    "type": "TIMESTAMP",
+    "mode": "NULLABLE",
+    "description": "Transaction initiation date"
+  },
+  {
+    "name": "updated_date",
+    "type": "TIMESTAMP",
+    "mode": "NULLABLE",
+    "description": "Last update date"
+  },
+  {
+    "name": "payer_email",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Payer email address"
+  },
+  {
+    "name": "payer_name",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Payer full name"
+  },
+  {
+    "name": "payer_country",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Payer country code"
+  },
+  {
+    "name": "payer_id",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "PayPal payer ID"
+  },
+  {
+    "name": "payment_method",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Payment method used"
+  },
+  {
+    "name": "store_info",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Store information"
+  },
+  {
+    "name": "custom_field",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Custom field data"
+  },
+  {
+    "name": "shipping_method",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Shipping method"
+  },
+  {
+    "name": "shipping_name",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Shipping recipient name"
+  },
+  {
+    "name": "shipping_address",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Shipping address"
+  },
+  {
+    "name": "item_count",
+    "type": "INT64",
+    "mode": "NULLABLE",
+    "description": "Number of items in transaction"
+  },
+  {
+    "name": "items",
+    "type": "RECORD",
+    "mode": "REPEATED",
+    "description": "Transaction items",
+    "fields": [
+      {
+        "name": "item_name",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "Item name"
+      },
+      {
+        "name": "item_quantity",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "Item quantity"
+      },
+      {
+        "name": "item_unit_price",
+        "type": "FLOAT64",
+        "mode": "NULLABLE",
+        "description": "Item unit price"
+      },
+      {
+        "name": "item_amount",
+        "type": "FLOAT64",
+        "mode": "NULLABLE",
+        "description": "Total item amount"
+      },
+      {
+        "name": "item_description",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "Item description"
+      },
+      {
+        "name": "item_sku",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "Item SKU/product code"
+      },
+      {
+        "name": "item_category",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "Item category"
+      }
+    ]
+  },
+  {
+    "name": "parsed_at",
+    "type": "TIMESTAMP",
+    "mode": "NULLABLE",
+    "description": "Timestamp when data was parsed"
+  },
+  {
+    "name": "loaded_at",
+    "type": "TIMESTAMP",
+    "mode": "NULLABLE",
+    "description": "Timestamp when data was loaded to BigQuery"
+  }
+]
